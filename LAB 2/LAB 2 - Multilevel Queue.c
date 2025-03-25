@@ -1,112 +1,73 @@
 #include <stdio.h>
-#include <stdlib.h>
 
-struct process {
-    int id;
-    int burst_time;
-    int is_system; // 1 for system, 0 for user
-};
+void main() {
+    int num_processes, system_count = 0, user_count = 0, process_type, burst_time;
+    float avg_waiting_time, avg_turnaround_time;
 
-typedef struct process Process;
+    // Get the number of processes from the user
+    printf("Enter the number of processes: ");
+    scanf("%d", &num_processes);
 
-void calculate_scheduling(Process *processes[], int n);
+    // Declare arrays for storing process data
+    int process_ids[num_processes];
+    int system_process_ids[num_processes], user_process_ids[num_processes];
+    int system_burst_times[num_processes], user_burst_times[num_processes];
+    int burst_times[num_processes], process_types[num_processes];
+    int waiting_times[num_processes], turnaround_times[num_processes];
 
-int main() {
-    int n, sys_count = 0, user_count = 0;
+    // Input process details
+    for (int i = 0; i < num_processes; i++) {
+        printf("Enter process type (1 for System, 0 for User): ");
+        scanf("%d", &process_type);
+        printf("Enter burst time for process %d: ", i + 1);
+        scanf("%d", &burst_time);
 
-    printf("Enter the Number of Processes: ");
-    scanf("%d", &n);
-
-    if (n <= 0) {
-        printf("No Processes to Schedule.\n");
-        return 0;
-    }
-
-    // Declare two queues for system and user processes
-    Process *system_queue[n], *user_queue[n];
-
-    // Input for each process
-    for (int i = 0; i < n; i++) {
-        int type, burst;
-        printf("\nEnter Process Type (System: 1, User: 0): ");
-        scanf("%d", &type);
-        printf("Enter Burst Time: ");
-        scanf("%d", &burst);
-
-        // Dynamically allocate memory for a new process
-        Process *p = (Process *)malloc(sizeof(Process));
-        p->id = i + 1;
-        p->burst_time = burst;
-        p->is_system = type;
-
-        // Add the process to the respective queue
-        if (type == 1) {
-            system_queue[sys_count++] = p;
-        } else {
-            user_queue[user_count++] = p;
+        if (process_type == 1) {  // System process
+            system_process_ids[system_count] = i + 1;
+            system_burst_times[system_count++] = burst_time;
+        } else {  // User process
+            user_process_ids[user_count] = i + 1;
+            user_burst_times[user_count++] = burst_time;
         }
     }
 
-    // Merge system and user processes into a single list for scheduling
-    Process *processes[n];
-    int index = 0;
-
-    // First, add all system processes to the list (higher priority)
-    for (int i = 0; i < sys_count; i++) {
-        processes[index++] = system_queue[i];
+    // Populate process data for system processes
+    for (int i = 0; i < system_count; i++) {
+        process_ids[i] = system_process_ids[i];
+        burst_times[i] = system_burst_times[i];
+        process_types[i] = 1;  // System process
     }
 
-    // Then, add all user processes to the list
+    // Populate process data for user processes
     for (int i = 0; i < user_count; i++) {
-        processes[index++] = user_queue[i];
+        process_ids[i + system_count] = user_process_ids[i];
+        burst_times[i + system_count] = user_burst_times[i];
+        process_types[i + system_count] = 0;  // User process
     }
 
-    // Calculate the scheduling for the combined processes
-    calculate_scheduling(processes, n);
+    // Initialize the waiting time and turnaround time for the first process
+    waiting_times[0] = 0;
+    turnaround_times[0] = burst_times[0];
+    avg_waiting_time = waiting_times[0];
+    avg_turnaround_time = turnaround_times[0];
 
-    // Free dynamically allocated memory for system and user processes
-    for (int i = 0; i < sys_count; i++) {
-        free(system_queue[i]);
+    // Calculate waiting time and turnaround time for each process
+    for (int i = 1; i < num_processes; i++) {
+        waiting_times[i] = waiting_times[i - 1] + burst_times[i - 1];
+        turnaround_times[i] = turnaround_times[i - 1] + burst_times[i];
+        avg_waiting_time += waiting_times[i];
+        avg_turnaround_time += turnaround_times[i];
     }
 
-    for (int i = 0; i < user_count; i++) {
-        free(user_queue[i]);
+    // Output the process details
+    printf("Process ID\tProcess Type\tBurst Time\tWaiting Time\tTurnaround Time\n");
+    for (int i = 0; i < num_processes; i++) {
+        printf("%d\t\t%d\t\t%d\t\t%d\t\t%d\n",
+               process_ids[i], process_types[i], burst_times[i],
+               waiting_times[i], turnaround_times[i]);
     }
 
-    return 0;
-}
-
-void calculate_scheduling(Process *processes[], int n) {
-    int waiting_time[n], turnaround_time[n];
-    float total_wt = 0, total_tat = 0;
-
-    // The first process has 0 waiting time
-    waiting_time[0] = 0;
-    turnaround_time[0] = processes[0]->burst_time;
-
-    // Accumulate total waiting time and turnaround time
-    total_wt = waiting_time[0];
-    total_tat = turnaround_time[0];
-
-    for (int i = 1; i < n; i++) {
-        waiting_time[i] = waiting_time[i - 1] + processes[i - 1]->burst_time;
-        turnaround_time[i] = waiting_time[i] + processes[i]->burst_time;
-        total_wt += waiting_time[i];
-        total_tat += turnaround_time[i];
-    }
-
-    // Print the process details
-    printf("\nProcess\t Type\t Burst Time\t Waiting Time\t Turnaround Time\n");
-    for (int i = 0; i < n; i++) {
-        printf("%d\t %s\t %d\t\t %d\t\t %d\n",
-               processes[i]->id,
-               processes[i]->is_system ? "System" : "User",
-               processes[i]->burst_time,
-               waiting_time[i],
-               turnaround_time[i]);
-    }
-
-    // Calculate and print average waiting time and turnaround time
-    printf("\nAverage Waiting Time = %.2f", total_wt / n);
-    printf("\nAverage Turnaround Time = %.2f\n", total_tat / n);
+    // Output average waiting time and average turnaround time
+    printf("\nAverage waiting time = %.2f", avg_waiting_time / num_processes);
+    printf("\nAverage turnaround time = %.2f", avg_turnaround_time / num_processes);
 }
